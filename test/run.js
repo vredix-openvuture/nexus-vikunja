@@ -279,8 +279,34 @@ async function drain(n) { for (let i = 0; i < (n || 10); i++) await settle(); }
     eq('settings · and only once', pages.size, 1);
     plugin.redrawSettings();
     eq('settings · a redraw goes through the suite', suite.redraws, 1);
+    eq('settings · hints point to the suite page', plugin.settingsPath(), 'Settings → Nexus Suite → Add-ons → Vikunja');
+    // The suite goes away: the settings get a tab of their own, and back.
+    const added = [], removed = [];
+    plugin.addSettingTab = (t) => added.push(t);
+    app.setting = { removeSettingTab: (t) => removed.push(t) };
+    plugin._layoutReady = true;
+    app.plugins = { getPlugin: () => null };
+    plugin.registerSettings();
+    eq('settings · without the suite they get a tab of their own', added.length, 1);
+    eq('settings · and the hints say where', plugin.settingsPath(), 'Settings → Nexus Vikunja');
+    app.plugins = { getPlugin: (id) => (id === 'nexus-suite' ? suite : null) };
+    pages.clear();
+    plugin.registerSettings();
+    ok('settings · the suite back: the page returns and the own tab goes', pages.has('nexus-vikunja') && removed.length === 1);
     plugin.onunload();
     ok('settings · unloading takes the page out', !pages.has('nexus-vikunja'));
+  }
+
+  // ── removing the add-on forgets what is on the device ─────────────────────
+  {
+    const { app, plugin } = setup();
+    const ls = new Map([['x-nexus-vikunja-board-abc-24', '{}'], ['other', '1']]);
+    global.window.localStorage = { get length() { return ls.size; }, key: (i) => [...ls.keys()][i], removeItem: (k) => ls.delete(k) };
+    plugin.forgetDeviceData();
+    ok('forget · the token is gone', !plugin.token());
+    ok('forget · the offline boards are gone, nothing else', !ls.has('x-nexus-vikunja-board-abc-24') && ls.has('other'));
+    app.secretStorage = { getSecret: () => null, setSecret() {}, deleteSecret() {}, isEncryptionAvailable: () => false };
+    ok('forget · an unencrypted store is called that', /NOT encrypted/.test(plugin.tokenStorageNote()));
   }
 
   console.log(fail === 0 ? 'ALL GREEN — ' + pass + ' checks' : fail + ' FAILED of ' + (pass + fail));

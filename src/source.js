@@ -163,7 +163,7 @@ function vikunjaSource(plugin, board) {
 
     get emptyText() {
       if (!projectId) return 'This board needs a line “project: <id>” — the Vikunja project it shows.';
-      if (!plugin.ready()) return 'Nexus Vikunja has no address or token on this device — Settings → Nexus Vikunja.';
+      if (!plugin.ready()) return 'Nexus Vikunja has no address or token on this device — ' + plugin.settingsPath() + '.';
       if (data && data.error) return 'Vikunja: ' + data.error;
       return 'Loading from Vikunja…';
     },

@@ -77,9 +77,10 @@ as ordinary notes; a board whose plugin is gone says so instead of showing cards
 
 ### The token stays on the device
 
-- **Obsidian's secret storage.** The API token is kept there: the system keyring on a desktop,
-  the encrypted store on Android. Never in `data.json` or the repo, so a synced vault does not
-  carry it. Each device is given its own once; the bin next to the field forgets it.
+- **Obsidian's secret storage.** The API token is kept there, encrypted with the system's key
+  store where the device has one (the setting says whether it is). Never in `data.json` or the
+  repo, so a synced vault does not carry it. Each device is given its own once; the bin next to
+  the field forgets it, and removing the add-on forgets it too.
 - **Older Obsidian** (before secret storage existed): the device's local storage instead, still
   outside the vault. A token saved there by 0.1.0 moves into the secret storage on its own.
 

@@ -45,15 +45,20 @@ function drawSettings(plugin, containerEl) {
 
   new Setting(containerEl).setName('API token')
     .setDesc('Vikunja → Settings → API tokens, with read and write on projects and tasks. '
-      + (plugin.secureStorage()
-        ? 'Kept in this device’s encrypted secret storage, never in the vault.'
-        : 'This Obsidian has no secret storage: kept in this device’s local storage, never in the vault.'))
+      + plugin.tokenStorageNote())
     .addText(t => {
       t.inputEl.type = 'password';
       t.setPlaceholder(plugin.token() ? '•••••• (set — type to replace)' : 'tk_…');
       // Saved when the field is left, not per keystroke: a half-typed token
       // must not be stored.
-      t.inputEl.addEventListener('change', () => { const v = t.getValue().trim(); if (v) { plugin.setToken(v); t.setValue(''); redraw(); } });
+      t.inputEl.addEventListener('change', () => {
+        const v = t.getValue().trim();
+        if (!v) return;
+        try { plugin.setToken(v); }
+        catch (e) { new Notice('Nexus Vikunja: the token could not be saved — ' + (e && e.message ? e.message : e)); return; }
+        t.setValue('');
+        redraw();
+      });
     })
     .addExtraButton(b => b.setIcon('trash-2').setTooltip('Forget the token on this device')
       .setDisabled(!plugin.token())

@@ -27,26 +27,28 @@ class NexusVikunja extends Plugin {
     const forget = () => { this._taskNotes = null; };
     this.registerEvent(this.app.metadataCache.on('changed', forget));
     ['create', 'delete', 'rename'].forEach(ev => this.registerEvent(this.app.vault.on(ev, forget)));
-    this.migrateToken();
+    try { this.migrateToken(); }
+    catch (e) { console.warn('[nexus-vikunja] moving the token into the secret storage failed; it stays where it was:', e && e.message); }
 
     this.addCommand({ id: 'sync-projects', name: 'Sync projects (a page per Vikunja project)', callback: () => this.syncProjects(true) });
     this.addCommand({ id: 'refresh-boards', name: 'Refresh open Vikunja boards', callback: () => this.refreshBoards() });
 
-    // The suite may load after this plugin: registered now if it is there,
-    // and again once the workspace is up.
-    this.registerSource();
-    this.registerSettings();
+    // The suite may load after this plugin, or be reloaded: it says so with
+    // 'nexus-suite:ready', and then the source and the page are registered
+    // (again). layout-change catches a suite that was turned off meanwhile.
+    this.registerEvent(this.app.workspace.on('nexus-suite:ready', () => this.attach()));
     this.app.workspace.onLayoutReady(() => {
-      this.registerSource();
-      this.registerSettings();
-      // No suite to host the page (or one too old): a tab of its own.
-      if (!this._offSettings && !this._ownTab) { this._ownTab = new VikunjaSettingTab(this.app, this); this.addSettingTab(this._ownTab); }
+      this._layoutReady = true;
+      this.attach();
       if (!this._unregister) new Notice('Nexus Vikunja needs Nexus Suite with its Kanban module turned on.');
       if (this.settings.syncOnStart && this.ready()) this.syncProjects(false);
       this.startTimer();
-      this.registerEvent(this.app.workspace.on('layout-change', () => { this.registerSource(); this.registerSettings(); }));
+      this.registerEvent(this.app.workspace.on('layout-change', () => this.attach()));
     });
+    this.attach();
   }
+
+  attach() { this.registerSource(); this.registerSettings(); }
 
   onunload() {
     if (this._unregister) this._unregister();
@@ -55,10 +57,21 @@ class NexusVikunja extends Plugin {
     this._offSettings = null;
   }
 
-  /* The settings as a page of Nexus Suite's own settings, under Add-ons. */
+  /* The settings as a page of Nexus Suite's own settings, under Add-ons — or,
+     with no suite to host it (off, missing, too old), a tab of its own. Called
+     whenever the suite may have come or gone. */
   registerSettings() {
     const suite = this.app.plugins && this.app.plugins.getPlugin ? this.app.plugins.getPlugin('nexus-suite') : null;
-    if (!suite || typeof suite.registerSettingsPage !== 'function') return;
+    if (!suite || typeof suite.registerSettingsPage !== 'function') {
+      this._offSettings = null;
+      this._settingsHost = null;
+      if (this._layoutReady && !this._ownTab) { this._ownTab = new VikunjaSettingTab(this.app, this); this.addSettingTab(this._ownTab); }
+      return;
+    }
+    if (this._ownTab) {
+      try { this.app.setting.removeSettingTab(this._ownTab); } catch (e) { /* an Obsidian without it keeps both */ }
+      this._ownTab = null;
+    }
     if (this._offSettings && this._settingsHost === suite && suite.settingsPages && suite.settingsPages.has('nexus-vikunja')) return;
     this._settingsHost = suite;
     this._offSettings = suite.registerSettingsPage({
@@ -67,6 +80,23 @@ class NexusVikunja extends Plugin {
       display: (el) => drawSettings(this, el),
     });
   }
+  /* Where the settings are right now, for the hints that send you there. */
+  settingsPath() { return this._offSettings ? 'Settings → Nexus Suite → Add-ons → Vikunja' : 'Settings → Nexus Vikunja'; }
+
+  /* Asked by the suite before it removes this add-on: what lives only on this
+     device — the token, the offline copies of boards — goes with it. */
+  forgetDeviceData() {
+    this.setToken('');
+    try {
+      const keys = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.indexOf('nexus-vikunja-board-') >= 0) keys.push(k);
+      }
+      keys.forEach(k => window.localStorage.removeItem(k));
+    } catch (e) { console.warn('[nexus-vikunja] clearing the offline boards failed:', e && e.message); }
+  }
+
   redrawSettings() {
     if (this._settingsHost && this._settingsHost.redrawSettings) this._settingsHost.redrawSettings();
     if (this._ownTab && this._ownTab.containerEl.isShown && this._ownTab.containerEl.isShown()) this._ownTab.display();
@@ -95,6 +125,19 @@ class NexusVikunja extends Plugin {
     const s = this.app.secretStorage;
     return s && typeof s.getSecret === 'function' ? s : null;
   }
+  /* Said as it is: Obsidian encrypts its secret storage with the system's key
+     store where the device has one, and keeps it in plain text where it has
+     none (a Linux desktop without a keyring) — and warns about that itself. */
+  tokenStorageNote() {
+    const secure = this.secureStorage();
+    if (!secure) return 'This Obsidian has no secret storage: kept in this device’s local storage, never in the vault.';
+    let encrypted = true;
+    try { encrypted = typeof secure.isEncryptionAvailable !== 'function' || secure.isEncryptionAvailable(); } catch (e) { encrypted = false; }
+    return encrypted
+      ? 'Kept in Obsidian’s secret storage on this device, encrypted with the system’s key store. Never in the vault.'
+      : 'Kept in Obsidian’s secret storage on this device, never in the vault — but NOT encrypted here: this system offers no key store to Obsidian.';
+  }
+
   token() {
     const secure = this.secureStorage();
     try {
@@ -157,7 +200,7 @@ class NexusVikunja extends Plugin {
 
   /* ---- work ------------------------------------------------------------- */
   async syncProjects(loud) {
-    if (!this.ready()) { if (loud) new Notice('Nexus Vikunja: set the address and the token first — Settings → Nexus Vikunja.'); return; }
+    if (!this.ready()) { if (loud) new Notice('Nexus Vikunja: set the address and the token first — ' + this.settingsPath() + '.'); return; }
     try {
       const r = await syncPages(this);
       const bits = [];
