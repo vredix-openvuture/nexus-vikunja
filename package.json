@@ -1,6 +1,6 @@
 {
   "name": "nexus-vikunja",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Companion plugin for Nexus Suite: Vikunja projects as kanban boards.",
   "private": true,
   "scripts": {

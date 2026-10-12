@@ -1,7 +1,7 @@
 {
   "id": "nexus-vikunja",
   "name": "Nexus Vikunja",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "1.6.0",
   "description": "Vikunja projects as Nexus Suite kanban boards: one page per project, cards straight from the Vikunja API, moves and ticks written back at once.",
   "author": "vredix",
