@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.1.1 — unreleased
+## 0.1.2 — 2026-10-12
+
+### Fixed
+
+- A task note made from a board placed in another note is filed under the project's folder, not
+  under a folder named after that note.
+
+## 0.1.1 — 2026-10-12
 
 ### Changed
 

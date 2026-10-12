@@ -219,6 +219,9 @@ async function drain(n) { for (let i = 0; i < (n || 10); i++) await settle(); }
     eq('notes · it opens', app.opened, [made]);
     await openTaskNote(plugin, Object.assign({}, task, { title: 'Renamed in Vikunja' }), 24, 'Nexus Suite');
     eq('notes · the second click opens the same note, even after a rename', app.opened, [made, made]);
+    await app.vault.create('Vikunja/Nexus Suite.md', '---\nvikunja-project: 24\n---\n');
+    await plugin.openNote({ id: 777, title: 'From a meeting' }, 24, 'Weekly meeting');
+    ok('notes · a board embedded elsewhere files under the project, not the note', [...app.files.keys()].some(p => p === 'Vikunja/Tasks/Nexus Suite/From a meeting.md'), [...app.files.keys()]);
     const other = { id: 555, title: 'Tapped twice' };
     await Promise.all([plugin.openNote(other, 24, 'Nexus Suite'), plugin.openNote(other, 24, 'Nexus Suite')]);
     eq('notes · a double tap makes one note', [...app.files.keys()].filter(p => /Tapped twice/.test(p)).length, 1);

@@ -66,6 +66,9 @@ as ordinary notes; a board whose plugin is gone says so instead of showing cards
 - **On start**, if turned on, the projects are synced once quietly. Off by default: on a second
   device the vault sync may not have pulled the pages yet, and the device would make them again.
 
+- **Any note can show a board.** The block (`source: vikunja`, `project: <id>`, optionally
+  `title:`) works anywhere, and so does embedding a project page.
+
 ### A note per task
 
 - **Click a card** and the task's note opens in a new tab. It is made on the first click, in

@@ -12,7 +12,7 @@ const { Plugin, Modal, Notice, Setting, normalizePath } = require('obsidian');
 const { VikunjaClient } = require('./client.js');
 const { BoardStore } = require('./store.js');
 const { vikunjaSource } = require('./source.js');
-const { syncPages } = require('./pages.js');
+const { syncPages, pageIndex } = require('./pages.js');
 const { safeName, noteIndex, openTaskNote } = require('./tasknotes.js');
 const { VikunjaSettingTab, drawSettings, DEFAULT_SETTINGS, TOKEN_KEY } = require('./settings.js');
 
@@ -188,10 +188,14 @@ class NexusVikunja extends Plugin {
 
   /* One note per task even when a card is tapped twice quickly: the second
      tap waits for the first instead of making another. */
-  openNote(task, projectId, projectTitle) {
+  openNote(task, projectId, boardTitle) {
     this._opening = this._opening || new Map();
     if (this._opening.has(task.id)) return this._opening.get(task.id);
-    const run = openTaskNote(this, task, projectId, projectTitle)
+    // The project's folder is named after the project's PAGE, not after the
+    // note the board happens to sit in — a board embedded in a meeting note
+    // must not file its tasks under "Meeting".
+    const page = pageIndex(this.app).get(projectId);
+    const run = openTaskNote(this, task, projectId, page ? page.basename : boardTitle)
       .catch(e => new Notice('Nexus Vikunja: the note could not be made — ' + (e && e.message ? e.message : e)))
       .then(() => { this._opening.delete(task.id); });
     this._opening.set(task.id, run);
