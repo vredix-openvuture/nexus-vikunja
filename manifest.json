@@ -1,0 +1,10 @@
+{
+  "id": "nexus-vikunja",
+  "name": "Nexus Vikunja",
+  "version": "0.1.0",
+  "minAppVersion": "1.6.0",
+  "description": "Vikunja projects as Nexus Suite kanban boards: one page per project, cards straight from the Vikunja API, moves and ticks written back at once.",
+  "author": "vredix",
+  "authorUrl": "https://github.com/vredix-openvuture",
+  "isDesktopOnly": false
+}

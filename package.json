@@ -1,0 +1,13 @@
+{
+  "name": "nexus-vikunja",
+  "version": "0.1.0",
+  "description": "Companion plugin for Nexus Suite: Vikunja projects as kanban boards.",
+  "private": true,
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "test": "node test/run.js && ./test/browser.sh"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}

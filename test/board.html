@@ -1,0 +1,72 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>vikunja board harness</title></head><body>
+<pre id="out"></pre><div id="stage"></div>
+<script src="board-bundle.js"></script>
+<script>
+const out = []; let pass = 0, fail = 0;
+const ok = (n, c, d) => { if (c) pass++; else { fail++; out.push('FAIL  ' + n + (d !== undefined ? '  →  ' + JSON.stringify(d) : '')); } };
+const tick = () => new Promise(r => setTimeout(r, 0));
+const drain = async (n) => { for (let i = 0; i < (n || 30); i++) await tick(); };
+(async () => {
+try {
+  const server = fakeVikunja();
+  globalThis.__requestUrl = server.handler;
+  const local = new Map(), files = new Map(), opened = [];
+  const app = {
+    loadLocalStorage: k => local.get(k) || null, saveLocalStorage: (k, v) => local.set(k, v),
+    vault: {
+      getMarkdownFiles: () => [], getAbstractFileByPath: p => files.get(p) || null,
+      createFolder: async () => {}, create: async (p) => { const f = new obsidianStub.TFile(); f.path = p; files.set(p, f); return f; },
+    },
+    metadataCache: { getFileCache: () => ({}), getFirstLinkpathDest: () => null },
+    workspace: { getLeaf: () => ({ openFile: async f => opened.push(f.path) }) },
+  };
+  const boardNote = new obsidianStub.TFile(); boardNote.path = 'Vikunja/Nexus Suite.md'; boardNote.basename = 'Nexus Suite';
+  files.set(boardNote.path, boardNote);
+  const plugin = {
+    app, ready: () => true,
+    client: () => new VikunjaClient({ url: 'https://vk.example', token: 'good' }),
+    taskUrl: id => 'https://vk.example/tasks/' + id, projectUrl: id => 'https://vk.example/projects/' + id,
+    taskNotesFolder: t => 'Vikunja/Tasks/' + t,
+    notes: new Map(), taskNotes() { return this.notes; }, rememberTaskNote(id, f) { this.notes.set(id, f); },
+    openNote: (task, pid, title) => openTaskNote(plugin, task, pid, title),
+  };
+  plugin.store = new BoardStore(app, () => plugin.client(), () => 'https://vk.example');
+  const kb = new kanbanLib.NexusKanban({ app, settings: { kanban: { enabled: true } } });
+  kb.registerSource('vikunja', board => vikunjaSource(plugin, board));
+  plugin.store.onSettled = () => kb.repaintSource('vikunja');
+  const el = document.getElementById('stage').createDiv();
+  kb.render('source: vikunja\nproject: 24', el, { sourcePath: 'Vikunja/Nexus Suite.md' });
+  ok('board · loading text first', /Loading from Vikunja/.test(el.textContent), el.textContent);
+  await drain();
+  const cols = el.querySelectorAll('.nx-kb-col');
+  ok('board · three bucket columns once Vikunja answered', cols.length === 3, cols.length);
+  ok('board · the done bucket is drawn as done', cols[2].classList.contains('is-done'));
+  ok('board · a card per task', el.querySelectorAll('.nx-kb-card').length === 3);
+  ok('board · a refresh button in the head', !!el.querySelector('.nx-kb-tool'));
+  ok('board · an add row per column', el.querySelectorAll('.nx-kb-add').length === 3);
+
+  // Ticking the first card goes to Vikunja and comes back as Done.
+  el.querySelector('.nx-kb-col .nx-kb-check').click();
+  await drain();
+  const t101 = server.tasks.find(t => t.id === 101);
+  ok('board · a tick is sent to Vikunja', t101.done === true && t101.title === 'Write docs', t101);
+  ok('board · and the card is redrawn in the done column', el.querySelectorAll('.nx-kb-col')[2].querySelectorAll('.nx-kb-card').length === 2);
+
+  // A click opens (and makes) the task's note.
+  el.querySelector('.nx-kb-col .nx-kb-card').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  await drain();
+  ok('board · a click makes the task note and opens it', opened.length === 1 && /^Vikunja\/Tasks\/Nexus Suite\//.test(opened[0]), opened);
+
+  // A new card typed into a column.
+  const input = el.querySelectorAll('.nx-kb-add-input')[0];
+  input.value = 'Typed in Obsidian';
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await drain();
+  ok('board · a typed card becomes a Vikunja task', server.tasks.some(t => t.title === 'Typed in Obsidian'));
+  ok('board · and shows on the board', /Typed in Obsidian/.test(el.textContent));
+} catch (e) { out.push('THREW: ' + (e && e.stack || e)); fail++; }
+out.push(fail === 0 ? 'ALL GREEN — ' + pass + ' checks' : fail + ' FAILED of ' + (pass + fail));
+document.getElementById('out').textContent = out.join('\n');
+})();
+</script></body></html>

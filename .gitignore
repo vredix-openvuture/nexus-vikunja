@@ -1,0 +1,6 @@
+# Build output: made from src/ by esbuild.
+/main.js
+node_modules
+# Per-vault settings of this plugin.
+data.json
+test/board-bundle.js

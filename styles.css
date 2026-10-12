@@ -1,0 +1,11 @@
+/* Nexus Vikunja — the one thing the suite's board does not already style:
+   the state chip in a Vikunja board's head. */
+.nx-vk-state {
+  font-size: var(--font-ui-smaller, .8em);
+  color: var(--text-muted);
+  padding: 0 var(--size-4-2, 8px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s, 4px);
+  white-space: nowrap;
+}
+.nx-vk-state.is-error { color: var(--text-error); border-color: var(--text-error); }
